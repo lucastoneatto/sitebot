@@ -1,0 +1,59 @@
+{
+  "name": "sitebot-api",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node scripts/require-node.mjs && nest start --watch",
+    "build": "node scripts/require-node.mjs && nest build",
+    "start": "node scripts/require-node.mjs && node dist/main.js",
+    "typecheck": "node scripts/require-node.mjs && tsc --noEmit",
+    "db:generate": "node scripts/require-node.mjs && drizzle-kit generate",
+    "db:migrate": "node scripts/require-node.mjs && tsx src/db/migrate.ts",
+    "db:push": "node scripts/require-node.mjs && drizzle-kit push",
+    "seed:admin": "node scripts/require-node.mjs && tsx src/scripts/seed-admin.ts",
+    "test": "node scripts/require-node.mjs && node --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@bull-board/api": "^9.10.1",
+    "@bull-board/express": "^9.10.1",
+    "@huggingface/transformers": "^3.0.0",
+    "@joplin/turndown-plugin-gfm": "^1.0.60",
+    "@mozilla/readability": "^0.5.0",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/throttler": "^6.4.0",
+    "bcryptjs": "^3.0.2",
+    "bullmq": "6.3.6",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.44.0",
+    "fast-xml-parser": "^4.5.0",
+    "ioredis": "^6.0.0",
+    "jsdom": "^25.0.0",
+    "openai": "^4.77.0",
+    "pg": "^8.13.0",
+    "playwright": "^1.49.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "turndown": "^7.2.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^5.0.0",
+    "@types/jsdom": "^21.1.7",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.11.10",
+    "@types/turndown": "^5.0.5",
+    "drizzle-kit": "^0.31.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

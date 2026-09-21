@@ -1,0 +1,63 @@
+---
+id: intro
+slug: /
+title: Sitebot — Technical Documentation
+sidebar_position: 1
+---
+
+# Sitebot — Technical Documentation
+
+Sitebot turns any website into a RAG-powered chatbot: it crawls a site, indexes
+its content in PostgreSQL with `pgvector`, and serves an embeddable chat widget
+that answers visitor questions using only that site's content.
+
+This folder documents the system for engineers picking up the codebase —
+architecture, data model, request flows, and operational concerns.
+
+## Contents
+
+| Doc | Covers |
+|---|---|
+| [Architecture](./architecture) | System overview, component responsibilities, deployment topology |
+| [Data Model](./data-model) | Database schema, entity relationships, cascades |
+| [Crawling Pipeline](./crawling-pipeline) | How a site gets discovered, fetched, and indexed |
+| [RAG Pipeline](./rag-pipeline) | How a chat question becomes a grounded, cited answer |
+| [API Reference](./api-reference) | HTTP endpoints, auth, rate limits |
+| [Security](./security) | Threat model and the specific mitigations in code |
+| [Frontend](./frontend) | Next.js dashboard structure and key flows |
+| [Setup Guide](./setup) | Local development and Docker deployment |
+
+## At a glance
+
+```mermaid
+flowchart LR
+    subgraph Visitor
+        W[Embedded Widget]
+    end
+    subgraph Owner
+        D[Next.js Dashboard]
+    end
+    subgraph API["NestJS API"]
+        C[Chat Endpoint]
+        CR[Crawler + Queue]
+        EM[Embeddings]
+    end
+    DB[(PostgreSQL + pgvector)]
+    Q[(Redis / Dragonfly + BullMQ)]
+    LLM[[OpenAI-compatible LLM]]
+
+    W -->|POST /chat SSE| C
+    D -->|JWT auth| CR
+    CR -->|jobs| Q
+    Q --> CR
+    CR --> DB
+    C --> DB
+    C --> LLM
+    EM --> DB
+    CR --> EM
+```
+
+**Stack:** NestJS + Drizzle ORM (API) · Next.js 15 (dashboard) · PostgreSQL 16 +
+pgvector · Redis-compatible Dragonfly + BullMQ (crawl queue) · local
+`multilingual-e5-small` embeddings via transformers.js, with an OpenAI-compatible
+provider for chat completions.

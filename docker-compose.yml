@@ -1,0 +1,88 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bot
+      POSTGRES_PASSWORD: bot
+      POSTGRES_DB: bot
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bot -d bot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    restart: unless-stopped
+    command:
+      # Sin proactor_threads, Dragonfly asume 1 hilo por core del host y en
+      # máquinas con muchos cores exige más RAM de la disponible en el free
+      # tier típico de un VPS. Se fija bajo porque el volumen de esta cola es
+      # chico. allow-undeclared-keys es obligatorio: los scripts Lua de BullMQ
+      # acceden claves no declaradas explícitamente en KEYS[], y sin este flag
+      # Dragonfly los rechaza (Redis clásico no exige esto).
+      - --proactor_threads=2
+      - --default_lua_flags=allow-undeclared-keys
+    ulimits:
+      memlock: -1
+    ports:
+      - "6379:6379"
+    volumes:
+      - dragonflydata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-h", "localhost", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    profiles: ["full"]
+    build: ./api
+    environment:
+      DATABASE_URL: postgres://bot:bot@db:5432/bot
+      REDIS_URL: redis://dragonfly:6379
+      API_PORT: 3001
+      API_URL: http://localhost:3001
+      CORS_RELAXED: "false"
+      DASHBOARD_ORIGINS: http://localhost:3000
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-local}
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CHAT_BASE_URL: ${CHAT_BASE_URL:-https://api.openai.com/v1}
+      ADMIN_USER: ${ADMIN_USER:-owner}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-admin}
+      BULL_BOARD_USER: ${BULL_BOARD_USER:-owner}
+      BULL_BOARD_PASSWORD: ${BULL_BOARD_PASSWORD:-change-me-admin}
+      CRAWL_PAGE_CONCURRENCY: ${CRAWL_PAGE_CONCURRENCY:-8}
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+      dragonfly:
+        condition: service_healthy
+    volumes:
+      - modelcache:/root/.cache/huggingface
+
+  web:
+    profiles: ["full"]
+    build: ./web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      API_URL: http://api:3001
+      ADMIN_USER: ${ADMIN_USER:-owner}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-admin}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  modelcache:
+  dragonflydata:
