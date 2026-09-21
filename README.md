@@ -1,90 +1,89 @@
 # Sitebot
 
-Genera un chatbot RAG para cualquier sitio web: escanea el sitio, guarda el
-contenido en Markdown, lo indexa en PostgreSQL + pgvector y entrega un snippet
-para embeber el chat en tu web.
+Generates a RAG chatbot for any website: it scans the site, saves the
+content in Markdown, indexes it in PostgreSQL + pgvector, and gives you a
+snippet to embed the chat on your site.
 
 ## Stack
 
 - **API** (`api/`): NestJS + Drizzle ORM + Playwright (fallback) + OpenAI-compatible chat
-- **Embeddings locales** (`Xenova/multilingual-e5-small`, 384 dims, CPU) vía transformers.js
-- **Web** (`web/`): Next.js 15 (dashboard con login)
+- **Local embeddings** (`Xenova/multilingual-e5-small`, 384 dims, CPU) via transformers.js
+- **Web** (`web/`): Next.js 15 (dashboard with login)
 - **DB**: PostgreSQL 16 + pgvector (Docker)
 - **Node 24** (`.nvmrc`)
 
-`api` y `web` son proyectos independientes, con su propio `node_modules` y lockfile.
+`api` and `web` are independent projects, each with its own `node_modules` and lockfile.
 
-📚 **Documentación técnica completa**: ver [`/docs`](./docs) (Markdown, con
-diagramas) o levantar el sitio Docusaurus en [`/docs-site`](./docs-site)
+📚 **Full technical documentation**: see [`/docs`](./docs) (Markdown, with
+diagrams) or run the Docusaurus site in [`/docs-site`](./docs-site)
 (`cd docs-site && pnpm install && pnpm start`).
 
-## 🚀 Puesta en marcha rápida (Docker, un solo comando)
+## 🚀 Quick start (Docker, single command)
 
-La forma más simple de levantar todo el proyecto en local. Solo necesitás
-Docker y una API key de OpenAI (o cualquier proveedor compatible).
+The simplest way to get the whole project running locally. All you need is
+Docker and an OpenAI API key (or any compatible provider).
 
 ```bash
-git clone <url-del-repo> sitebot && cd sitebot
+git clone <repo-url> sitebot && cd sitebot
 cp .env.example .env
 ```
 
-Editá `.env` y poné tu clave real:
+Edit `.env` and set your real key:
 
 ```bash
-OPENAI_API_KEY=sk-tu-clave-aqui
+OPENAI_API_KEY=sk-your-key-here
 ```
 
-(el resto de las variables ya tienen valores por defecto que funcionan en
-local sin tocar nada más). Después:
+(the rest of the variables already have default values that work locally
+without touching anything else). Then:
 
 ```bash
 docker compose --profile full up --build
 ```
 
-Esperá a que los 4 servicios (`db`, `dragonfly`, `api`, `web`) queden
-"healthy" y entrá a **http://localhost:3000**. Registrate desde ahí, o si
-querés un usuario admin ya creado corré una sola vez:
+Wait until the 4 services (`db`, `dragonfly`, `api`, `web`) are "healthy" and
+go to **http://localhost:3000**. Register from there, or if you want an
+admin user already created, run once:
 
 ```bash
 docker compose exec api pnpm seed:admin
 ```
 
-y entrá con `admin@sitebot.local` / `password1234`.
+and log in with `admin@sitebot.local` / `password1234`.
 
-Para parar todo: `docker compose down` (agregá `-v` si además querés borrar
-los datos de la base).
+To stop everything: `docker compose down` (add `-v` if you also want to
+delete the database data).
 
-> Este modo levanta también `api` y `web` dentro de Docker (perfil `full`).
-> Es el camino más fácil, pero recompila las imágenes en cada cambio de
-> código — para desarrollar con recarga en caliente, usá la sección
-> siguiente.
+> This mode also runs `api` and `web` inside Docker (`full` profile).
+> It's the easiest path, but it rebuilds the images on every code change —
+> to develop with hot reload, use the section below.
 
-## Requisitos (desarrollo local sin Docker completo)
+## Requirements (local development without full Docker)
 
 - Node 24 (`nvm use`)
 - pnpm 10
 - Docker
 
-## Puesta en marcha
+## Getting started
 
 ```bash
 # 0. Node 24
 nvm use
 
-# 1. Variables de entorno
-cp .env.example .env            # edita OPENAI_API_KEY y JWT_SECRET
+# 1. Environment variables
+cp .env.example .env            # edit OPENAI_API_KEY and JWT_SECRET
 cp web/.env.example web/.env.local
 
-# 2. Base de datos
+# 2. Database
 docker compose up -d db
 
 # 3. API (terminal 1)
 nvm use
 cd api
 pnpm install
-pnpm exec playwright install chromium   # solo para el fallback JS
+pnpm exec playwright install chromium   # only for the JS fallback
 pnpm db:migrate
-pnpm seed:admin                        # crea el admin con SEED_ADMIN_*
+pnpm seed:admin                        # creates the admin with SEED_ADMIN_*
 pnpm dev                               # http://localhost:3001
 
 # 4. Web (terminal 2)
@@ -94,77 +93,81 @@ pnpm install
 pnpm dev                               # http://localhost:3000
 ```
 
-Todo en Docker (perfil `full`):
+Everything in Docker (`full` profile):
 
 ```bash
 OPENAI_API_KEY=sk-... JWT_SECRET=... docker compose --profile full up --build
 ```
 
-## Uso
+## Usage
 
-1. Inicia sesión en http://localhost:3000 (por defecto `admin@sitebot.local` /
-   `password1234` si usaste `pnpm seed:admin`), o regístrate.
-2. Ingresa la URL del sitio y créalo.
-3. Pulsa **Escanear sitio** (hasta `CRAWL_MAX_PAGES` páginas y `CRAWL_MAX_DEPTH`
-   niveles). El contenido se indexa con embeddings locales (sin costo).
-4. Abre **Ver landing** para previsualizar una landing (título, URL, resumen)
-   con el widget inyectado.
-5. Copia el snippet y pégalo en tu sitio:
+1. Log in at http://localhost:3000 (by default `admin@sitebot.local` /
+   `password1234` if you ran `pnpm seed:admin`), or sign up.
+2. Enter the site URL and create it.
+3. Click **Scan site** (up to `CRAWL_MAX_PAGES` pages and `CRAWL_MAX_DEPTH`
+   levels). The content is indexed with local embeddings (no cost).
+4. Open **View landing** to preview a landing page (title, URL, summary)
+   with the widget injected.
+5. Copy the snippet and paste it into your site:
 
 ```html
-<script src="http://localhost:3001/widget.js" data-site-id="TU_SITE_ID" defer></script>
+<script src="http://localhost:3001/widget.js" data-site-id="YOUR_SITE_ID" defer></script>
 ```
 
-Opciones del widget: `data-color`, `data-title`, `data-greeting`, `data-position`
-(`left`/`right`) y `data-api` (por defecto, el origen del script).
+Widget options: `data-color`, `data-title`, `data-greeting`, `data-position`
+(`left`/`right`) and `data-api` (defaults to the script's origin).
 
-## Cómo funciona
+## How it works
 
-1. **Descubrir**: lee `robots.txt` y `sitemap.xml` (incluye índices). Si no hay
-   sitemap, navega enlaces internos del mismo dominio hasta `maxDepth`.
-2. **Extraer**: `fetch` + Readability/Turndown (cheerio-first). Si la página es un
-   shell JS, se renderiza con Playwright como fallback.
-3. **Indexar**: el Markdown se divide en chunks (~375 tokens) y se generan
-   embeddings `multilingual-e5-small` (384 dims, CPU) en `chunks.embedding`.
-   El re-crawl es incremental (por `contentHash`) y reconcilia páginas borradas.
-4. **Responder**: `POST /chat` busca los chunks más cercanos por similitud, arma
-   el prompt y transmite la respuesta por SSE, con fuentes.
+1. **Discover**: reads `robots.txt` and `sitemap.xml` (including indexes). If
+   there's no sitemap, it crawls internal links of the same domain up to
+   `maxDepth`.
+2. **Extract**: `fetch` + Readability/Turndown (cheerio-first). If the page is
+   a JS shell, it's rendered with Playwright as a fallback.
+3. **Index**: the Markdown is split into chunks (~375 tokens) and
+   `multilingual-e5-small` embeddings (384 dims, CPU) are generated into
+   `chunks.embedding`. Re-crawling is incremental (by `contentHash`) and
+   reconciles deleted pages.
+4. **Respond**: `POST /chat` searches for the closest chunks by similarity,
+   builds the prompt and streams the response via SSE, with sources.
 
-## Seguridad (mínima, single-instance)
+## Security (minimal, single-instance)
 
-- **Auth**: `users` + JWT. Las rutas admin (`/sites*`, `/auth/me`) requieren
-  `Authorization: Bearer <token>`. Públicas: `/chat` (widget) y `/widget.js`.
-- **Origen**: `/chat` valida `Origin` contra `allowedOrigins` + `DASHBOARD_ORIGINS`
-  (`CORS_RELAXED=false` en prod).
-- **Rate limiting**: `/chat` 15 req/min por IP, `/auth` 10/min, resto 120/min.
-- **SSRF**: el crawler rechaza hosts que resuelven a IPs privadas/loopback/metadata.
+- **Auth**: `users` + JWT. Admin routes (`/sites*`, `/auth/me`) require
+  `Authorization: Bearer <token>`. Public: `/chat` (widget) and `/widget.js`.
+- **Origin**: `/chat` validates `Origin` against `allowedOrigins` + `DASHBOARD_ORIGINS`
+  (`CORS_RELAXED=false` in prod).
+- **Rate limiting**: `/chat` 15 req/min per IP, `/auth` 10/min, rest 120/min.
+- **SSRF**: the crawler rejects hosts that resolve to private/loopback/metadata IPs.
 
 ## Endpoints
 
-| Método | Ruta | Auth | Descripción |
+| Method | Route | Auth | Description |
 |---|---|---|---|
-| POST | `/auth/register` | no | Crear usuario |
+| POST | `/auth/register` | no | Create user |
 | POST | `/auth/login` | no | Login → JWT |
-| GET | `/auth/me` | sí | Usuario actual |
-| POST | `/sites` | sí | Crear sitio |
-| GET | `/sites` | sí | Listar sitios (con conteos) |
-| GET | `/sites/:id` | sí | Detalle: sitio, último job, stats |
-| PATCH | `/sites/:id` | sí | Nombre, orígenes, ajustes |
-| DELETE | `/sites/:id` | sí | Eliminar sitio |
-| POST | `/sites/:id/crawl` | sí | Iniciar rastreo + indexado |
-| GET | `/sites/:id/status` | sí | Estado del sitio y último job |
-| GET | `/sites/:id/pages` | sí | Páginas indexadas (paginado `?offset&limit`) |
-| GET | `/sites/:id/pages/:pageId` | sí | Página con Markdown |
-| POST | `/sites/:id/summary` | sí | Regenerar resumen |
-| POST | `/chat` | no | RAG con streaming SSE (público) |
-| GET | `/widget.js` | no | Script embebible |
+| GET | `/auth/me` | yes | Current user |
+| POST | `/sites` | yes | Create site |
+| GET | `/sites` | yes | List sites (with counts) |
+| GET | `/sites/:id` | yes | Detail: site, last job, stats |
+| PATCH | `/sites/:id` | yes | Name, origins, settings |
+| DELETE | `/sites/:id` | yes | Delete site |
+| POST | `/sites/:id/crawl` | yes | Start crawl + indexing |
+| GET | `/sites/:id/status` | yes | Site status and last job |
+| GET | `/sites/:id/pages` | yes | Indexed pages (paginated `?offset&limit`) |
+| GET | `/sites/:id/pages/:pageId` | yes | Page with Markdown |
+| POST | `/sites/:id/summary` | yes | Regenerate summary |
+| POST | `/chat` | no | RAG with SSE streaming (public) |
+| GET | `/widget.js` | no | Embeddable script |
 
-## Entidad principal: `Site`
+## Main entity: `Site`
 
-`users` → `sites` → `pages` → `chunks` (vectores) · `crawl_jobs` · `chat_sessions` → `messages`.
-Borrar un usuario o sitio elimina en cascada todo su contenido.
+`users` → `sites` → `pages` → `chunks` (vectors) · `crawl_jobs` · `chat_sessions` → `messages`.
+Deleting a user or site cascades and removes all its content.
 
 ## Scripts
 
 **api**: `dev`, `build`, `start`, `typecheck`, `db:generate`, `db:migrate`, `db:push`, `seed:admin`
 **web**: `dev`, `build`, `start`, `typecheck`
+</content>
+</invoke>
