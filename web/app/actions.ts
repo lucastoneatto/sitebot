@@ -64,7 +64,15 @@ export async function createSiteAction(formData: FormData) {
   if (!url) return;
 
   const normalized = /^https?:\/\//.test(url) ? url : `https://${url}`;
-  const site = await api.createSite(name, normalized);
+  let site: Awaited<ReturnType<typeof api.createSite>>;
+  try {
+    site = await api.createSite(name, normalized);
+  } catch {
+    // Transient API failure (e.g. a redeploy mid-request): stay on the
+    // dashboard instead of crashing to the generic error boundary.
+    revalidatePath('/dashboard');
+    return;
+  }
   revalidatePath('/dashboard');
   redirect(`/dashboard/sites/${site.id}`);
 }
@@ -72,7 +80,13 @@ export async function createSiteAction(formData: FormData) {
 export async function deleteSiteAction(formData: FormData) {
   const id = String(formData.get('id') ?? '');
   if (!id) return;
-  await api.deleteSite(id);
+  try {
+    await api.deleteSite(id);
+  } catch {
+    // Transient API failure: site stays listed, user can retry.
+    revalidatePath('/dashboard');
+    return;
+  }
   revalidatePath('/dashboard');
   redirect('/dashboard');
 }
@@ -97,29 +111,33 @@ export async function updateSettingsAction(formData: FormData) {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  await api.updateSite(id, {
-    name: String(formData.get('name') ?? '').trim() || undefined,
-    allowedOrigins: origins,
-    autoSync: formData.get('autoSync') === 'on',
-    syncIntervalHours: formData.get('syncIntervalHours')
-      ? Number(formData.get('syncIntervalHours'))
-      : undefined,
-    settings: {
-      color: String(formData.get('color') ?? '').trim() || undefined,
-      greeting: String(formData.get('greeting') ?? '').trim() || undefined,
-      // Empty string = the user cleared their prompt, must be persisted.
-      customPrompt: String(formData.get('customPrompt') ?? '').trim(),
-      temperature: formData.get('temperature')
-        ? Number(formData.get('temperature'))
+  try {
+    await api.updateSite(id, {
+      name: String(formData.get('name') ?? '').trim() || undefined,
+      allowedOrigins: origins,
+      autoSync: formData.get('autoSync') === 'on',
+      syncIntervalHours: formData.get('syncIntervalHours')
+        ? Number(formData.get('syncIntervalHours'))
         : undefined,
-      maxPages: formData.get('maxPages')
-        ? Number(formData.get('maxPages'))
-        : undefined,
-      maxDepth: formData.get('maxDepth')
-        ? Number(formData.get('maxDepth'))
-        : undefined,
-    },
-  });
+      settings: {
+        color: String(formData.get('color') ?? '').trim() || undefined,
+        greeting: String(formData.get('greeting') ?? '').trim() || undefined,
+        // Empty string = the user cleared their prompt, must be persisted.
+        customPrompt: String(formData.get('customPrompt') ?? '').trim(),
+        temperature: formData.get('temperature')
+          ? Number(formData.get('temperature'))
+          : undefined,
+        maxPages: formData.get('maxPages')
+          ? Number(formData.get('maxPages'))
+          : undefined,
+        maxDepth: formData.get('maxDepth')
+          ? Number(formData.get('maxDepth'))
+          : undefined,
+      },
+    });
+  } catch {
+    // Transient API failure: settings keep their previous values, user can retry.
+  }
   revalidatePath(`/dashboard/sites/${id}`);
   revalidatePath(`/dashboard/sites/${id}/landing`);
 }
@@ -174,7 +192,11 @@ export async function setPlanAction(formData: FormData) {
   const userId = String(formData.get('userId') ?? '');
   const plan = String(formData.get('plan') ?? '');
   if (!userId || (plan !== 'free' && plan !== 'paid')) return;
-  await adminApi.setPlan(userId, plan);
+  try {
+    await adminApi.setPlan(userId, plan);
+  } catch {
+    // Transient API failure: plan keeps its previous value, admin can retry.
+  }
   revalidatePath('/admin/users');
 }
 
@@ -189,10 +211,14 @@ function parseQuota(value: FormDataEntryValue | null): number | null {
 export async function setQuotaAction(formData: FormData) {
   const siteId = String(formData.get('siteId') ?? '');
   if (!siteId) return;
-  await adminApi.setQuota(siteId, {
-    monthlyMessageLimit: parseQuota(formData.get('monthlyMessageLimit')),
-    monthlyBudgetUsd: parseQuota(formData.get('monthlyBudgetUsd')),
-  });
+  try {
+    await adminApi.setQuota(siteId, {
+      monthlyMessageLimit: parseQuota(formData.get('monthlyMessageLimit')),
+      monthlyBudgetUsd: parseQuota(formData.get('monthlyBudgetUsd')),
+    });
+  } catch {
+    // Transient API failure: quota keeps its previous value, admin can retry.
+  }
   revalidatePath('/admin/sites');
 }
 
